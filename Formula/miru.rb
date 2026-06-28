@@ -9,8 +9,8 @@
 class Miru < Formula
   desc "Inline review for AI-generated Markdown and HTML, fully local"
   homepage "https://github.com/22mb/miru"
-  license "MIT"
   version "2026.6.28"
+  license "MIT"
 
   on_macos do
     on_arm do
