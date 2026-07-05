@@ -13,6 +13,11 @@ class Miru < Formula
   version "2026.7.5"
   license "MIT"
 
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
+
   on_macos do
     on_arm do
       url "https://github.com/22mb/miru/releases/download/#{version}/miru-macos-arm64"
@@ -33,11 +38,6 @@ class Miru < Formula
       url "https://github.com/22mb/miru/releases/download/#{version}/miru-linux-x64"
       sha256 "1b78333379eb506e0848b592128864b4a9854d41727ddc04af3a71500fceae09"
     end
-  end
-
-  livecheck do
-    url :stable
-    strategy :github_latest
   end
 
   def install
