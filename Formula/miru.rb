@@ -3,9 +3,10 @@
 # Installs the pre-built single-file binary from GitHub Releases of 22mb/miru
 # (built with `bun build --compile`, so no Bun runtime is required at install time).
 #
-# `version`, every `url` tag, and every `sha256` below are bumped automatically by
-# the release CI on each tagged release. The sha256 values are placeholders until
-# then. See Formula/README.md for the tap layout and the bump workflow.
+# `version`, every `url` tag, and every `sha256` below are bumped MANUALLY, one PR
+# per upstream release: bump `version`, then copy each binary's checksum from that
+# release's `miru-*.sha256` assets (https://github.com/22mb/miru/releases). There is
+# no bump automation — neither this tap nor miru's release workflow edits this file.
 class Miru < Formula
   desc "Inline review for AI-generated Markdown and HTML, fully local"
   homepage "https://github.com/22mb/miru"
