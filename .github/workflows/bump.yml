@@ -1,0 +1,195 @@
+name: Bump formula
+
+# Manual only, run from the Actions tab after a miru release is published.
+#
+# There is deliberately no `schedule`: a cron here would be disabled automatically after
+# 60 days without a commit — and this repository is idle between releases — while its
+# failures went unwatched in the meantime. Pressing the button keeps every run in front
+# of a human.
+#
+# Verification (audit/install/test) runs in the same job that opens the PR rather than as
+# a check on the PR itself, because a pull request created with GITHUB_TOKEN does not
+# trigger other workflows — a check workflow would simply never run.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to bump to (defaults to the latest miru release)"
+        required: false
+        type: string
+      dry_run:
+        description: "Update and verify the formula, but do not push or open a PR"
+        required: false
+        type: boolean
+        default: false
+
+# Least privilege at the top level; jobs opt into exactly what they need.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  UPSTREAM: 22mb/miru
+  FORMULA: Formula/miru.rb
+
+jobs:
+  check:
+    name: Check formula status
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      changed: ${{ steps.v.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      # `gh` refuses to run without a token even against a public repository, so
+      # GH_TOKEN is required here — it is this repository's own GITHUB_TOKEN, which
+      # is enough to read a public release. No cross-repository credential is involved.
+      - name: Resolve target version
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version="$INPUT_VERSION"
+          if [ -z "$version" ]; then
+            version=$(gh release view --repo "$UPSTREAM" --json tagName -q .tagName)
+          fi
+          current=$(sed -n 's/^[[:space:]]*version "\(.*\)"/\1/p' "$FORMULA" | head -1)
+          if [ -z "$current" ]; then
+            echo "Could not read the current version from $FORMULA" >&2
+            exit 1
+          fi
+
+          changed=true
+          if [ "$version" = "$current" ]; then
+            changed=false
+          fi
+          {
+            echo "version=$version"
+            echo "changed=$changed"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$changed" = true ]; then
+            echo "Formula is at $current; bumping to $version."
+          else
+            echo "Formula is already at $version; nothing to do."
+          fi
+
+  bump:
+    name: Bump and verify
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # `contents: write` pushes the branch, `pull-requests: write` opens the PR. The
+    # latter also requires "Allow GitHub Actions to create and approve pull requests"
+    # in this repository's Actions settings.
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # Without a token, `brew audit --online`'s GitHub API calls share the runner's
+      # IP with every other job on it and hit the 60 req/h unauthenticated limit.
+      HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      # persist-credentials is left at its default (true) — unlike miru's release
+      # workflow, this job pushes a branch back to its own repository.
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Homebrew ships preinstalled on the Ubuntu runner but is deliberately kept off
+      # PATH by the image.
+      - name: Put Homebrew on PATH
+        run: |
+          echo "/home/linuxbrew/.linuxbrew/bin"  >> "$GITHUB_PATH"
+          echo "/home/linuxbrew/.linuxbrew/sbin" >> "$GITHUB_PATH"
+
+      # Checksums are computed from the binaries themselves rather than copied from the
+      # release's `.sha256` assets, so every checksum written below is provably the hash
+      # of the file a user will actually download — on all platforms, independently of
+      # what `brew audit` happens to cover.
+      - name: Download release binaries and compute checksums
+        run: |
+          # The formula's urls are the source of truth for which platforms exist.
+          mapfile -t targets < <(sed -n 's|.*url ".*/\(miru-[^"/]*\)".*|\1|p' "$FORMULA" | sort -u)
+          if [ "${#targets[@]}" -eq 0 ]; then
+            echo "No miru-* urls found in $FORMULA" >&2
+            exit 1
+          fi
+          echo "Platforms: ${targets[*]}"
+
+          mkdir -p /tmp/miru-bin
+          for name in "${targets[@]}"; do
+            gh release download "$VERSION" --repo "$UPSTREAM" --pattern "$name" --dir /tmp/miru-bin
+          done
+
+          # sha256sum prints "<sha>  <name>"; the rewrite script wants "<name> <sha>".
+          (cd /tmp/miru-bin && sha256sum "${targets[@]}") \
+            | awk '{ print $2, $1 }' > /tmp/miru-sums.txt
+          cat /tmp/miru-sums.txt
+
+      - name: Rewrite formula
+        run: |
+          awk -v version="$VERSION" -v sums=/tmp/miru-sums.txt \
+            -f .github/scripts/rewrite-formula.awk "$FORMULA" > /tmp/miru.rb
+          mv /tmp/miru.rb "$FORMULA"
+          git --no-pager diff -- "$FORMULA"
+
+      # `brew audit` needs tap context and cannot be pointed at a checkout directly, so
+      # link the workspace in as the tap: the rewritten, still-uncommitted formula is
+      # what gets audited, installed and tested.
+      - name: Audit, install and test
+        run: |
+          tap_dir="$(brew --repository)/Library/Taps/22mb/homebrew-miru"
+          mkdir -p "$(dirname "$tap_dir")"
+          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
+
+          # --os/--arch=all reaches the `on_macos` blocks too, which a Linux runner
+          # would otherwise never load. install/test can only exercise this runner's
+          # own platform.
+          brew audit --strict --online --os=all --arch=all 22mb/miru/miru
+          brew install 22mb/miru/miru
+          brew test 22mb/miru/miru
+
+      - name: Open pull request
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          branch="bump/$VERSION"
+          git switch -c "$branch"
+          git commit -m "chore(formula): bump miru to $VERSION" -- "$FORMULA"
+          # Force-push so re-running for the same version updates the existing branch
+          # instead of failing.
+          git push --force origin "$branch"
+
+          if [ -n "$(gh pr list --head "$branch" --state open --json number -q '.[].number')" ]; then
+            echo "A pull request for $branch is already open; pushed the update to it."
+            exit 0
+          fi
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          body=$(cat <<EOF
+          Bumps the formula to [\`$VERSION\`](https://github.com/$UPSTREAM/releases/tag/$VERSION).
+
+          Checksums were computed from the release binaries themselves, and \`brew audit --strict --online\`, \`brew install\` and \`brew test\` passed on this branch.
+
+          Opened by the [Bump formula]($run_url) workflow.
+          EOF
+          )
+          gh pr create --title "chore(formula): bump miru to $VERSION" --body "$body"

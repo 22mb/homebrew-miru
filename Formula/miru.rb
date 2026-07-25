@@ -3,10 +3,11 @@
 # Installs the pre-built single-file binary from GitHub Releases of 22mb/miru
 # (built with `bun build --compile`, so no Bun runtime is required at install time).
 #
-# `version`, every `url` tag, and every `sha256` below are bumped MANUALLY, one PR
-# per upstream release: bump `version`, then copy each binary's checksum from that
-# release's `miru-*.sha256` assets (https://github.com/22mb/miru/releases). There is
-# no bump automation — neither this tap nor miru's release workflow edits this file.
+# `version` and every `sha256` below are updated by the "Bump formula" workflow
+# (.github/workflows/bump.yml), run by hand from the Actions tab after an upstream
+# release. It computes each checksum from the released binary itself, verifies the
+# result with `brew audit`/`install`/`test`, and opens the bump PR. Editing this file
+# directly still works — the workflow only makes it unnecessary.
 class Miru < Formula
   desc "Inline review for AI-generated Markdown and HTML, fully local"
   homepage "https://github.com/22mb/miru"
