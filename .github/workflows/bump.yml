@@ -1,0 +1,123 @@
+name: Bump formula
+
+# Manual only, run from the Actions tab after a miru release is published.
+#
+# There is deliberately no `schedule`: a cron here would be disabled automatically after
+# 60 days without a commit — this repository is idle between releases — while its
+# failures went unwatched in the meantime. Pressing the button keeps every run in front
+# of a human.
+#
+# Verification runs in the same job that opens the PR rather than as a check on the PR,
+# because a pull request created with GITHUB_TOKEN does not trigger other workflows — a
+# check workflow on it would simply never run.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to bump to (defaults to the latest miru release)"
+        required: false
+        type: string
+      dry_run:
+        description: "Generate and verify the formula, but do not open a PR"
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  bump:
+    name: Bump and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # `pull-requests: write` additionally requires "Allow GitHub Actions to create and
+    # approve pull requests" in this repository's Actions settings.
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      # `gh` refuses to run without a token even against a public repository. This is
+      # this repository's own GITHUB_TOKEN — no cross-repository credential is involved.
+      GH_TOKEN: ${{ github.token }}
+      # Unauthenticated GitHub API calls from `brew audit --online` share the runner's
+      # IP with every other job on it and hit the 60 req/h limit.
+      HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+      UPSTREAM: 22mb/miru
+      INPUT_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Homebrew ships preinstalled on the Ubuntu runner but is kept off PATH by the image.
+      - name: Put Homebrew on PATH
+        run: |
+          echo "/home/linuxbrew/.linuxbrew/bin"  >> "$GITHUB_PATH"
+          echo "/home/linuxbrew/.linuxbrew/sbin" >> "$GITHUB_PATH"
+
+      # The formula is generated whole from the template rather than patched in place.
+      # The template carries {{VERSION}} and one {{SHA256_<ASSET>}} per binary, where
+      # <ASSET> is the release asset name upcased with dashes as underscores
+      # (miru-macos-arm64 -> SHA256_MIRU_MACOS_ARM64). Checksums are taken from the
+      # release's own .sha256 assets: miru publishes immutable, attested releases, so
+      # there is nothing here worth re-deriving.
+      - name: Generate formula
+        id: gen
+        run: |
+          version="$INPUT_VERSION"
+          [ -n "$version" ] || version=$(gh release view --repo "$UPSTREAM" --json tagName -q .tagName)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          gh release download "$version" --repo "$UPSTREAM" --pattern '*.sha256' --dir /tmp/sums
+
+          sed "s|{{VERSION}}|$version|g" .github/miru.rb.template > Formula/miru.rb
+          for f in /tmp/sums/*.sha256; do
+            key=$(basename "$f" .sha256 | tr 'a-z-' 'A-Z_')
+            sed -i "s|{{SHA256_$key}}|$(cut -d' ' -f1 "$f")|g" Formula/miru.rb
+          done
+
+          # A surviving placeholder means the template names an asset this release does
+          # not have — fail rather than ship an empty checksum.
+          if grep -n '{{' Formula/miru.rb; then
+            echo "Unsubstituted placeholders remain in the formula" >&2
+            exit 1
+          fi
+
+          if git diff --quiet -- Formula/miru.rb; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Formula is already at $version; verifying it anyway."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git --no-pager diff -- Formula/miru.rb
+          fi
+
+      # `brew audit` needs tap context and cannot be pointed at a checkout, so link the
+      # workspace in as the tap: the generated, still-uncommitted formula is what runs.
+      - name: Audit, install and test
+        run: |
+          tap_dir="$(brew --repository)/Library/Taps/22mb/homebrew-miru"
+          mkdir -p "$(dirname "$tap_dir")"
+          ln -s "$GITHUB_WORKSPACE" "$tap_dir"
+
+          # --os/--arch=all reaches the on_macos blocks a Linux runner never loads.
+          brew audit --strict --online --os=all --arch=all 22mb/miru/miru
+          brew install 22mb/miru/miru
+          brew test 22mb/miru/miru
+
+      - name: Open pull request
+        if: ${{ !inputs.dry_run && steps.gen.outputs.changed == 'true' }}
+        env:
+          VERSION: ${{ steps.gen.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git switch -c "bump/$VERSION"
+          git commit -m "chore(formula): bump miru to $VERSION" -- Formula/miru.rb
+          # Force-push so re-running for the same version updates the branch in place.
+          git push --force origin "bump/$VERSION"
+          gh pr create --title "chore(formula): bump miru to $VERSION" \
+            --body "Generated from \`.github/miru.rb.template\` for [\`$VERSION\`](https://github.com/$UPSTREAM/releases/tag/$VERSION). \`brew audit --strict --online\`, \`brew install\` and \`brew test\` passed on this branch."
