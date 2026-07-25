@@ -17,14 +17,14 @@ class Miru < Formula
     strategy :github_latest
   end
 
-  # Apple Silicon only: Homebrew deprecates macOS x86_64 in September 2026 and Intel
-  # Macs are out of Apple's support window. Keeping the on_arm block, rather than
-  # hoisting the url up into on_macos, is what makes an Intel Mac fail with an
-  # unsupported-platform error instead of downloading a binary it cannot run.
   on_macos do
     on_arm do
       url "https://github.com/22mb/miru/releases/download/#{version}/miru-macos-arm64"
       sha256 "667d8f86c07c68c9242a2c4d6155ff21bc1de8b8fbcc007ebae63c7f962af85e"
+    end
+    on_intel do
+      url "https://github.com/22mb/miru/releases/download/#{version}/miru-macos-x64"
+      sha256 "d48666d6963e86240715290b12bf8a29bb7e4808b7bc115111dbe93bd2be095b"
     end
   end
 
