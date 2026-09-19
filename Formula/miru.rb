@@ -9,7 +9,6 @@
 class Miru < Formula
   desc "Inline review for AI-generated Markdown and HTML, fully local"
   homepage "https://github.com/22mb/miru"
-  version "2026.7.26.2"
   license "MIT"
 
   livecheck do
@@ -19,23 +18,23 @@ class Miru < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/22mb/miru/releases/download/#{version}/miru-macos-arm64"
-      sha256 "72e2c6da76934b4ec32d71108cf92db07ea0e71af1378968dc4ced228cd64a55"
+      url "https://github.com/22mb/miru/releases/download/2026.9.15/miru-macos-arm64"
+      sha256 "11ee983208f4d042d8c3e6e456b9aa866645b1f7a48a3edb743948f5a972dd80"
     end
     on_intel do
-      url "https://github.com/22mb/miru/releases/download/#{version}/miru-macos-x64"
-      sha256 "8c998f08709f799be636ce9149b4713c9645b73663a7fca263686a0ac9a13426"
+      url "https://github.com/22mb/miru/releases/download/2026.9.15/miru-macos-x64"
+      sha256 "74a6ddb4c6c6464b7a406f58a57f811fb1b3afbabc85356b0937ac8771f04140"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/22mb/miru/releases/download/#{version}/miru-linux-arm64"
-      sha256 "417e10898e4482cb15176a2a5f7976b5f2c0816d1b74f8fbb5c0d3094e27d79e"
+      url "https://github.com/22mb/miru/releases/download/2026.9.15/miru-linux-arm64"
+      sha256 "d32362c05131b649f3945073c7156a0564e08f5c6f8425a33c5fbbb677d5b94e"
     end
     on_intel do
-      url "https://github.com/22mb/miru/releases/download/#{version}/miru-linux-x64"
-      sha256 "8299d9daed06b54389cd52ed4d2c682081a5d0e94cebf946e5c42470df5233ca"
+      url "https://github.com/22mb/miru/releases/download/2026.9.15/miru-linux-x64"
+      sha256 "ed7a2321a16b79c7fae3362633e5d9fccdf59a862fad3d219cabe50cea431e82"
     end
   end
 
