@@ -9,7 +9,6 @@
 class Miru < Formula
   desc "Inline review for AI-generated Markdown and HTML, fully local"
   homepage "https://github.com/22mb/miru"
-  version "{{VERSION}}"
   license "MIT"
 
   livecheck do
@@ -19,22 +18,22 @@ class Miru < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/22mb/miru/releases/download/#{version}/miru-macos-arm64"
+      url "https://github.com/22mb/miru/releases/download/{{VERSION}}/miru-macos-arm64"
       sha256 "{{SHA256_MIRU_MACOS_ARM64}}"
     end
     on_intel do
-      url "https://github.com/22mb/miru/releases/download/#{version}/miru-macos-x64"
+      url "https://github.com/22mb/miru/releases/download/{{VERSION}}/miru-macos-x64"
       sha256 "{{SHA256_MIRU_MACOS_X64}}"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/22mb/miru/releases/download/#{version}/miru-linux-arm64"
+      url "https://github.com/22mb/miru/releases/download/{{VERSION}}/miru-linux-arm64"
       sha256 "{{SHA256_MIRU_LINUX_ARM64}}"
     end
     on_intel do
-      url "https://github.com/22mb/miru/releases/download/#{version}/miru-linux-x64"
+      url "https://github.com/22mb/miru/releases/download/{{VERSION}}/miru-linux-x64"
       sha256 "{{SHA256_MIRU_LINUX_X64}}"
     end
   end
