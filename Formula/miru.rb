@@ -18,23 +18,23 @@ class Miru < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/22mb/miru/releases/download/2026.9.15/miru-macos-arm64"
-      sha256 "11ee983208f4d042d8c3e6e456b9aa866645b1f7a48a3edb743948f5a972dd80"
+      url "https://github.com/22mb/miru/releases/download/2026.10.25/miru-macos-arm64"
+      sha256 "8d6b9700acdc6cb926ec69562d8c509b2d1876a752cd7c4bce3c5a2e07da6be8"
     end
     on_intel do
-      url "https://github.com/22mb/miru/releases/download/2026.9.15/miru-macos-x64"
-      sha256 "74a6ddb4c6c6464b7a406f58a57f811fb1b3afbabc85356b0937ac8771f04140"
+      url "https://github.com/22mb/miru/releases/download/2026.10.25/miru-macos-x64"
+      sha256 "95c8ce66cb1324512876159584798c651f06cd21e493f6e94740c8a4c6d2c0a7"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/22mb/miru/releases/download/2026.9.15/miru-linux-arm64"
-      sha256 "d32362c05131b649f3945073c7156a0564e08f5c6f8425a33c5fbbb677d5b94e"
+      url "https://github.com/22mb/miru/releases/download/2026.10.25/miru-linux-arm64"
+      sha256 "b4aaab17c7649aab3a271541df918e3ab8b929bc60b79b977c79e6bae54c1211"
     end
     on_intel do
-      url "https://github.com/22mb/miru/releases/download/2026.9.15/miru-linux-x64"
-      sha256 "ed7a2321a16b79c7fae3362633e5d9fccdf59a862fad3d219cabe50cea431e82"
+      url "https://github.com/22mb/miru/releases/download/2026.10.25/miru-linux-x64"
+      sha256 "119a5e33feb1b7aca56ff03a961ff1f3ce8256898d849134d2a8f60cc60129d2"
     end
   end
 
