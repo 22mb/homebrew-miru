@@ -1,5 +1,9 @@
 # homebrew-miru
 
+> [!WARNING]
+> **miru is no longer maintained**, and this tap is archived.
+> `brew install miru` still installs the final release, 2026.10.25, but the formula will not be updated again.
+
 Homebrew tap for [miru](https://github.com/22mb/miru) — a local tool for inline review of
 AI-generated Markdown / HTML, as rendered in the browser.
 
